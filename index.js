@@ -3,6 +3,8 @@ import Datastore from "nedb-promises";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { config } from "./config.js";
+import { authenticator } from "otplib";
+import qrcode from "qrcode";
 
 const app = express();
 app.use(express.json());
@@ -30,6 +32,8 @@ app.post("/api/auth/register", async (req, res) => {
             email,
             password: hashedPassword,
             role: role ?? "member",
+            '2faEnabled': false,
+            "2faSecret": null,
         });
 
         return res.status(201).json({ 
@@ -138,7 +142,29 @@ app.post("/api/auth/refresh-token", async (req, res) => {
         return res.status(500).json({ message: "Server error" });
     }
 });
+app.get("/api/auth/2fa/generate", ensureAuthenticated, async (req, res) => {
+    try {
+        const user = await users.findOne({ _id: req.user.id });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        // Generate 2FA secret and save it to the user
+        const secret = authenticator.generateSecret();
+        const uri = authenticator.keyuri(user.email, 'manfra.io', secret);
 
+        await users.update({ _id: req.user.id }, { $set: { "2faSecret": secret } });
+        await users.compactDatafile();
+
+        // Generate QR code
+        const qrCode = await qrcode.toBuffer(uri, { type: 'image/png', margin: 1 });
+
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Content-Disposition', "attachment; filename='qrcode.png'");
+        return res.status(200).type('image/png').send(qrCode);
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+});
 
 app.get("/api/users/current", ensureAuthenticated, async (req, res) => {
     try {
