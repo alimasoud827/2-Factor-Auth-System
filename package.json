@@ -1,0 +1,20 @@
+{
+  "name": "auth_tut",
+  "version": "1.0.0",
+  "description": "Authentication and  Authorization tutorial",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "nedb-promises": "^6.2.3",
+    "nodemon": "^3.1.9"
+  }
+}
