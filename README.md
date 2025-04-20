@@ -10,7 +10,6 @@ A secure, production-ready Node.js authentication system featuring:
 
 > 💡 This project is open-source and designed to showcase secure authentication practices for clients and devs alike.
 
----
 
 ## 🚀 Features
 
@@ -40,5 +39,5 @@ A secure, production-ready Node.js authentication system featuring:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/auth-2fa-node.git
-cd auth-2fa-node
+git clone (https://github.com/alimasoud827/2-Factor-Auth-System.git)
+cd 2-Factor-Auth-System
