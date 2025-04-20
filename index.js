@@ -5,10 +5,14 @@ import jwt from "jsonwebtoken";
 import { config } from "./config.js";
 import { authenticator } from "otplib";
 import qrcode from "qrcode";
+import crypto from "crypto";
+import NodeCache from "node-cache";
+import { console } from "inspector";
 
 const app = express();
 app.use(express.json());
 
+const cache = new NodeCache({ stdTTL: 100, checkperiod: 120 });
 const users = Datastore.create("Users.db");
 const userRefreshTokens = Datastore.create("UserRefreshTokens.db");
 
@@ -62,19 +66,72 @@ app.post("/api/auth/login", async (req, res) => {
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        const accessToken = jwt.sign({ userId: user._id}, config.accessTokenSecret, { subject: 'accessAPI', expiresIn: '1h' });
+        if (user["2faEnabled"]) {
+            const temptoken = crypto.randomUUID();
 
-        const refreshToken = jwt.sign({ userId: user._id}, config.refreshTokenSecret, { subject: 'refreshAPI', expiresIn: '1d' });
+            cache.set(config.cacheTemporaryTokenPrefix + temptoken, user._id, config.cacheTemporaryTokenExpiry); // Store the token in cache for 5 minutes
+
+            return res.status(200).json({
+                tempToken: temptoken,
+                expiresIn: config.cacheTemporaryTokenExpiry,
+            });
+        } else {
+            const accessToken = jwt.sign({ userId: user._id}, config.accessTokenSecret, { subject: 'accessAPI', expiresIn: '1h' });
+
+            const refreshToken = jwt.sign({ userId: user._id}, config.refreshTokenSecret, { subject: 'refreshAPI', expiresIn: '1d' });
+
+            await userRefreshTokens.insert({ refreshToken, userId: user._id });
+
+            return res.status(200).json({ 
+                id: user._id,
+                name: user.name,
+                email: user.email,
+                accessToken,
+                refreshToken,
+                message: "Login successful", id: user._id
+            });
+        };
+
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+});
+
+app.post("/api/auth/2fa/login/2fa", async (req, res) => {
+    try {
+        const { tempToken, totp } = req.body;
+        if (!tempToken || !totp) {
+            return res.status(422).json({ message: "All fields are required" });
+        }
+
+        const userId = cache.get(config.cacheTemporaryTokenPrefix + tempToken);
+        if (!userId) {
+            return res.status(401).json({ message: "Invalid or expired temporary token" });
+        }
+
+        const user = await users.findOne({ _id: userId });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const isValid = authenticator.check(totp, user["2faSecret"]);
+        if (!isValid) {
+            return res.status(401).json({ message: "Invalid TOTP code" });
+        }
+
+        // Generate access and refresh tokens
+        const accessToken = jwt.sign({ userId: user._id }, config.accessTokenSecret, { subject: 'accessAPI', expiresIn: '1h' });
+        const refreshToken = jwt.sign({ userId: user._id }, config.refreshTokenSecret, { subject: 'refreshAPI', expiresIn: '1d' });
 
         await userRefreshTokens.insert({ refreshToken, userId: user._id });
 
-        return res.status(200).json({ 
+        return res.status(200).json({
             id: user._id,
             name: user.name,
             email: user.email,
             accessToken,
             refreshToken,
-            message: "Login successful", id: user._id
+            message: "Login successful",
         });
 
     } catch (error) {
@@ -163,6 +220,32 @@ app.get("/api/auth/2fa/generate", ensureAuthenticated, async (req, res) => {
         return res.status(200).type('image/png').send(qrCode);
     } catch (error) {
         return res.status(500).json({ message: error.message });
+    }
+});
+
+app.post("/api/auth/2fa/validate", ensureAuthenticated, async (req, res) => {
+    try {
+        const { totp } = req.body;
+        if (!totp) {
+            return res.status(422).json({ message: "TOTP code required" });
+        }
+
+        const user = await users.findOne({ _id: req.user.id });
+        const isValid = authenticator.check(totp, user["2faSecret"]);
+        if (!isValid) {
+            return res.status(401).json({ message: "Invalid TOTP code" });
+        }
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Enable 2FA for the user
+        await users.update({ _id: req.user.id }, { $set: { "2faEnabled": true } });
+        await users.compactDatafile();
+
+        return res.status(200).json({ message: "2FA enabled successfully" });   
+    } catch (error) {
+        return res.status(500).json({ message: error.message });        
     }
 });
 

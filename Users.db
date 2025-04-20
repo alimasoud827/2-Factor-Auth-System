@@ -1,1 +1,2 @@
-{"name":"ashy ali","email":"ali@gmail.com","password":"$2b$10$m9WRf2QmYbxD0K4jDxvWoOaR53BX2OqxxSOrJJF7HnGZyGqo15EQ2","role":"member","2faEnabled":false,"twoFactorSecret":null,"_id":"6ngx1tTvVJ9r2YQf","2faSecret":"EJYCC2K5C5BHWOIF"}
+{"name":"ashy ali","email":"ali@gmail.com","password":"$2b$10$m9WRf2QmYbxD0K4jDxvWoOaR53BX2OqxxSOrJJF7HnGZyGqo15EQ2","role":"member","2faEnabled":true,"twoFactorSecret":null,"_id":"6ngx1tTvVJ9r2YQf","2faSecret":"EJYCC2K5C5BHWOIF"}
+{"name":"aslam ali","email":"aslam@gmail.com","password":"$2b$10$lH85OzM3Hp./pQvRS1nSTeeDjYaJRoHNzzDvCf2V1V98bfPdjL3Ye","role":"member","2faEnabled":false,"2faSecret":null,"_id":"td8cFKuppSweSowd"}
